@@ -20,15 +20,21 @@ struct ContentView: View {
 }
 
 struct Weight: View {
+    @State private var weight: Double = 0
     @State private var selectedView = "Pounds"
     @State private var weightSelection: [String: Bool]
-    
+
     let viewOptions = ["Pounds", "Kilos"]
+    private let kilosData: [String: Bool] = [
+        "25": true, "20": true, "15": true, "10": true, "5": true, "2.5": true, "1": true, "0.75": true, "0.5": true,
+    ]
+    private let poundData: [String: Bool] = [
+        "55": true, "45": true, "35": true, "25": true, "15": true, "10": true,
+        "5": true, "2.5": true, "1.25": true,
+    ]
 
     init() {
-        _weightSelection = State(initialValue: [
-            "55": true, "45": true, "35": true, "25": true, "15": true, "10": true, "5": true, "2.5": true, "1.25": true
-        ])
+        _weightSelection = State(initialValue: poundData)
     }
 
     var body: some View {
@@ -40,16 +46,27 @@ struct Weight: View {
             }
             .pickerStyle(SegmentedPickerStyle())
             .padding()
+            .onChange(of: selectedView) {
+                handleViewChange(selectedView)
+            }
 
             PlateSelection(weightSelection: $weightSelection)
 
             if selectedView == "Pounds" {
-                Pounds()
+                Pounds(weightSelection: weightSelection)
             } else if selectedView == "Kilos" {
                 Kilos()
             }
-            
+
             Spacer()
+        }
+    }
+
+    private func handleViewChange(_ newValue: String) {
+        if newValue == "Kilos" {
+            weightSelection = kilosData
+        } else if newValue == "Pounds" {
+            weightSelection = poundData
         }
     }
 
@@ -58,7 +75,11 @@ struct Weight: View {
 
         var body: some View {
             HStack(spacing: 6) {
-                ForEach(weightSelection.keys.sorted(), id: \.self) { weight in
+                ForEach(
+                    weightSelection.keys.sorted(by: {
+                        Double($0) ?? 0 > Double($1) ?? 0
+                    }), id: \.self
+                ) { weight in
                     Button(action: {
                         weightSelection[weight]?.toggle()
                     }) {
@@ -81,6 +102,7 @@ struct Weight: View {
         @State private var totalWeight: String = ""
         @State private var plates = [(weight: Double, count: Int)]()
         @State private var selectedBarType: String = "Long Bar (44lb)"
+        let weightSelection: [String: Bool]
 
         let barWeights = ["Short Bar (35lb)": 35, "Long Bar (45lb)": 45]
         let poundPlates = [55, 45, 35, 25, 10, 5]
@@ -106,7 +128,7 @@ struct Weight: View {
                 .padding()
 
                 Button("Calculate Plates") {
-                    calculatePlates()
+                    plates = Weight.calculatePlates(barWeights:barWeights, selectedBarType: selectedBarType, totalWeight: totalWeight, plateSizes: weightSelection)
                 }
                 .padding()
                 .background(Color.blue)
@@ -130,35 +152,37 @@ struct Weight: View {
 
         }
 
-        func calculatePlates() {
-            guard let weight = Double(totalWeight),
-                let barWeight = barWeights[selectedBarType],
-                weight > Double(barWeight)
-            else {
-                plates = []
-                return
-            }
-            let netWeight = weight - Double(barWeight)
-            let plateSizes: [Double] = [55, 45, 35, 25, 10, 5]
-            var remainingWeight = netWeight
-            var results = [(Double, Int)]()
-
-            for plate in plateSizes {
-                let count = Int(remainingWeight / plate)
-                let evenCount = (count % 2 == 0) ? count : count - 1
-                if evenCount > 0 {
-                    results.append((plate, evenCount))
-                    remainingWeight -= Double(evenCount) * plate
-                }
-            }
-
-            plates = results
-        }
-
-        // Retrieve the color for each plate based on its weight
         func colorForPlate(_ weight: Double) -> Color {
-            return colorMap[weight] ?? .gray  // Default to gray if no specific color is found
+            return colorMap[weight] ?? .gray
         }
+    }
+    
+    static func calculatePlates(barWeights: [String: Int], selectedBarType: String, totalWeight: String, plateSizes: [String: Bool]) -> [(Double, Int)] {
+        guard let weight = Double(totalWeight),
+              let barWeight = barWeights[selectedBarType],
+              weight > Double(barWeight) else {
+            return []
+        }
+
+        let netWeight = weight - Double(barWeight)
+        var remainingWeight = netWeight
+        var results = [(Double, Int)]()
+
+        let selectedWeights: [Double] = plateSizes.compactMap {
+            key, value in
+            value ? Double(key) : nil
+        }
+
+        for plate in selectedWeights.sorted(by: >) {
+            let count = Int(remainingWeight / plate)
+            let evenCount = (count % 2 == 0) ? count : count - 1
+            if evenCount > 0 {
+                results.append((plate, evenCount))
+                remainingWeight -= Double(evenCount) * plate
+            }
+        }
+
+        return results
     }
 
     struct Kilos: View {

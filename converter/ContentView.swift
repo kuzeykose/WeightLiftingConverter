@@ -55,7 +55,7 @@ struct Weight: View {
             if selectedView == "Pounds" {
                 Pounds(weightSelection: weightSelection)
             } else if selectedView == "Kilos" {
-                Kilos()
+                Kilos(weightSelection: weightSelection)
             }
 
             Spacer()
@@ -189,7 +189,7 @@ struct Weight: View {
         @State private var totalWeight: String = ""
         @State private var plates = [(weight: Double, count: Int)]()
         @State private var selectedBarType: String = "Long Bar (20kg)"
-
+        let weightSelection: [String: Bool]
         let barWeights = ["Short Bar (15kg)": 15, "Long Bar (20kg)": 20]
 
         let colorMap: [Double: Color] = [
@@ -217,7 +217,7 @@ struct Weight: View {
                 .padding()
 
                 Button("Calculate Plates") {
-                    calculatePlates()
+                    plates = Weight.calculatePlates(barWeights:barWeights, selectedBarType: selectedBarType, totalWeight: totalWeight, plateSizes: weightSelection)
                 }
                 .padding()
                 .background(Color.blue)
@@ -238,31 +238,6 @@ struct Weight: View {
                 }
             }
             .padding()
-        }
-
-        func calculatePlates() {
-            guard let weight = Double(totalWeight),
-                let barWeight = barWeights[selectedBarType],
-                weight > Double(barWeight)
-            else {
-                plates = []
-                return
-            }
-            let netWeight = weight - Double(barWeight)
-            let plateSizes: [Double] = [25, 20, 15, 10, 2.5, 1.25]
-            var remainingWeight = netWeight
-            var results = [(Double, Int)]()
-
-            for plate in plateSizes {
-                let count = Int(remainingWeight / plate)
-                let evenCount = (count % 2 == 0) ? count : count - 1
-                if evenCount > 0 {
-                    results.append((plate, evenCount))
-                    remainingWeight -= Double(evenCount) * plate
-                }
-            }
-
-            plates = results
         }
 
         // Retrieve the color for each plate based on its weight
